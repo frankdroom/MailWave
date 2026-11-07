@@ -23,13 +23,12 @@ public class EmailListPanel extends JPanel {
     private List<Email> sourceEmails = new ArrayList<>();
 
     private Consumer<Email> onStarToggled;
+    private Consumer<Email> onEmailSelectedListener;
 
     public EmailListPanel() {
         setLayout(new BorderLayout());
         setBackground(Theme.BG_PANEL);
 
-        add(buildHeader(),      BorderLayout.NORTH);
-        add(buildFilterBar(),   BorderLayout.AFTER_LAST_LINE);
         list = buildList();
 
         JScrollPane scroll = new JScrollPane(list);
@@ -37,22 +36,29 @@ public class EmailListPanel extends JPanel {
         scroll.getViewport().setBackground(Theme.BG_PANEL);
         styleScrollBar(scroll.getVerticalScrollBar());
 
-        removeAll();
-        setLayout(new BorderLayout());
-
         JPanel top = new JPanel(new BorderLayout());
         top.setBackground(Theme.BG_DARKEST);
         top.add(buildHeader(),    BorderLayout.NORTH);
         top.add(buildFilterBar(), BorderLayout.SOUTH);
+
         add(top,    BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
     }
 
     public JList<Email> getList() { return list; }
+
     public void setOnStarToggled(Consumer<Email> c) { this.onStarToggled = c; }
 
+    public void setOnEmailSelectedListener(Consumer<Email> listener) {
+        this.onEmailSelectedListener = listener;
+    }
+
+    public void updateList(List<Email> emails) {
+        setEmails(emails);
+    }
+
     public void setEmails(List<Email> emails) {
-        sourceEmails = new ArrayList<>(emails);
+        sourceEmails = emails != null ? new ArrayList<>(emails) : new ArrayList<>();
         applyFilter();
     }
 
@@ -136,11 +142,19 @@ public class EmailListPanel extends JPanel {
         lst.setFixedCellHeight(76);
         lst.setBorder(BorderFactory.createEmptyBorder());
 
+        // Слушатель выбора элемента в списке
+        lst.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                Email selected = lst.getSelectedValue();
+                if (selected != null && onEmailSelectedListener != null) {
+                    onEmailSelectedListener.accept(selected);
+                }
+            }
+        });
 
         JPopupMenu popup = new JPopupMenu();
         popup.setBackground(Theme.BG_CARD);
         popup.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
-        popup.setBackground(Theme.BG_CARD);
 
         JMenuItem toggleRead    = menuItem("Mark as unread");
         JMenuItem toggleStarred = menuItem("Star");
@@ -169,9 +183,9 @@ public class EmailListPanel extends JPanel {
 
         copyFrom.addActionListener(e -> {
             Email sel = lst.getSelectedValue();
-            if (sel != null && sel.getFrom() != null) {
+            if (sel != null && sel.getSender() != null) {
                 Toolkit.getDefaultToolkit().getSystemClipboard()
-                        .setContents(new java.awt.datatransfer.StringSelection(sel.getFrom()), null);
+                        .setContents(new java.awt.datatransfer.StringSelection(sel.getSender()), null);
             }
         });
 
@@ -181,7 +195,9 @@ public class EmailListPanel extends JPanel {
         popup.add(copyFrom);
 
         lst.addMouseListener(new MouseAdapter() {
+            @Override
             public void mousePressed(MouseEvent e)  { maybePopup(e); }
+            @Override
             public void mouseReleased(MouseEvent e) { maybePopup(e); }
             private void maybePopup(MouseEvent e) {
                 if (e.isPopupTrigger()) {
@@ -203,7 +219,7 @@ public class EmailListPanel extends JPanel {
     private JMenuItem menuItem(String text) {
         JMenuItem item = new JMenuItem(text);
         item.setBackground(Theme.BG_CARD);
-        item.setForeground(Theme.BG_DARKEST);  // Светлый текст
+        item.setForeground(Theme.TEXT_PRIMARY); // Исправлен цвет текста
         item.setFont(Theme.FONT_BODY);
         item.setBorder(new EmptyBorder(6, 14, 6, 14));
         return item;
@@ -282,7 +298,7 @@ public class EmailListPanel extends JPanel {
             Color bg = isSelected ? Theme.BG_SELECTED : (index % 2 == 0 ? Theme.BG_PANEL : Theme.BG_CARD);
             setBackground(bg);
 
-            String from = email.getFrom() != null ? email.getFrom() : "Unknown";
+            String from = email.getSender() != null ? email.getSender() : "Unknown";
             if (from.length() > 30) from = from.substring(0, 28) + "…";
             fromLabel.setText(from);
             fromLabel.setForeground(isSelected ? Theme.TEXT_PRIMARY :
@@ -293,15 +309,15 @@ public class EmailListPanel extends JPanel {
             subjectLabel.setText(subj);
             subjectLabel.setForeground(isSelected ? Theme.TEXT_PRIMARY : Theme.TEXT_SECONDARY);
 
-            String snippet = email.getText().trim().replace("\n", " ");
+            String snippet = email.getBody() != null ? email.getBody().trim().replace("\n", " ") : "";
             if (snippet.length() > 55) snippet = snippet.substring(0, 53) + "…";
             snippetLabel.setText(snippet.isEmpty() ? " " : snippet);
 
-            if (email.getReceivedOn() != null) {
-                long age = System.currentTimeMillis() - email.getReceivedOn().getTime();
+            if (email.getSentDate() != null) {
+                long age = System.currentTimeMillis() - email.getSentDate().getTime();
                 dateLabel.setText(age < 86400000L
-                        ? SDF_TODAY.format(email.getReceivedOn())
-                        : SDF_OLD.format(email.getReceivedOn()));
+                        ? SDF_TODAY.format(email.getSentDate())
+                        : SDF_OLD.format(email.getSentDate()));
             } else {
                 dateLabel.setText("");
             }
@@ -310,7 +326,7 @@ public class EmailListPanel extends JPanel {
             unreadDot.setVisible(!email.isRead());
             starLabel.setText(email.isStarred() ? "★" : "");
             starLabel.setForeground(new Color(0xFF, 0xC0, 0x40));
-            attachIcon.setVisible(!email.getAttachments().isEmpty());
+            attachIcon.setVisible(email.getAttachments() != null && !email.getAttachments().isEmpty());
 
             return this;
         }
@@ -318,11 +334,14 @@ public class EmailListPanel extends JPanel {
 
     private void styleScrollBar(JScrollBar bar) {
         bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
             protected void configureScrollBarColors() {
                 thumbColor = Theme.BG_HOVER;
                 trackColor = Theme.BG_PANEL;
             }
+            @Override
             protected JButton createDecreaseButton(int o) { return tiny(); }
+            @Override
             protected JButton createIncreaseButton(int o) { return tiny(); }
             private JButton tiny() {
                 JButton b = new JButton();

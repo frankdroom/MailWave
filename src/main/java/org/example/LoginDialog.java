@@ -182,7 +182,7 @@ public class LoginDialog extends JDialog {
 
                 MailService service = new MailService(receiver, sender, parserService, searchService);
 
-                service.testConnection(); // только проверка логина, без загрузки писем
+                service.testConnection();
                 return service;
             }
 
@@ -190,7 +190,7 @@ public class LoginDialog extends JDialog {
             protected void done() {
                 try {
                     mailService = get();
-                    dispose(); // Вход успешен, закрываем диалог
+                    dispose();
                 } catch (Exception ex) {
                     statusLabel.setForeground(Color.RED);
                     statusLabel.setText("Ошибка авторизации: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));

@@ -17,7 +17,6 @@ import java.util.Properties;
 
 public class EmailReceiver {
 
-    /** Сколько последних писем загружать за один раз. */
     public static final int DEFAULT_MAX_MESSAGES = 100;
 
     private final String host;
@@ -32,10 +31,6 @@ public class EmailReceiver {
         this.password = password;
     }
 
-    /**
-     * Быстрая проверка логина и пароля: подключается, открывает INBOX и сразу закрывает.
-     * Письма при этом НЕ скачиваются.
-     */
     public void testConnection() throws MessagingException {
         Store store = null;
         Folder inbox = null;
@@ -53,7 +48,6 @@ public class EmailReceiver {
         return receiveEmails(parserService, DEFAULT_MAX_MESSAGES);
     }
 
-    /** Загружает не более {@code maxMessages} самых новых писем, сначала новые. */
     public List<Email> receiveEmails(MimeParserService parserService, int maxMessages) throws MessagingException {
         Store store = null;
         Folder inbox = null;
@@ -67,12 +61,9 @@ public class EmailReceiver {
                 return new ArrayList<>();
             }
 
-            // Берём только последние письма. Раньше качался весь ящик (inbox.getMessages()),
-            // на большом ящике это занимало минуты и выглядело как бесконечное подключение.
             int start = Math.max(1, total - maxMessages + 1);
             Message[] messages = inbox.getMessages(start, total);
 
-            // Заголовки всех писем запрашиваются одним пакетом, а не по одному письму.
             FetchProfile profile = new FetchProfile();
             profile.add(FetchProfile.Item.ENVELOPE);
             profile.add(FetchProfile.Item.CONTENT_INFO);
@@ -84,7 +75,6 @@ public class EmailReceiver {
                     try {
                         emails.add(parserService.parseMessage(mimeMessage));
                     } catch (MessagingException | IOException e) {
-                        // Одно битое письмо не должно ломать загрузку всего ящика.
                         System.err.println("Пропущено письмо, которое не удалось разобрать: " + e.getMessage());
                     }
                 }
@@ -103,12 +93,10 @@ public class EmailReceiver {
         properties.put("mail.imaps.port", port);
         properties.put("mail.imaps.ssl.enable", "true");
 
-        properties.put("mail.imaps.connectiontimeout", "10000"); // 10 секунд на подключение
-        properties.put("mail.imaps.timeout", "10000");           // 10 секунд на чтение данных
+        properties.put("mail.imaps.connectiontimeout", "10000");
+        properties.put("mail.imaps.timeout", "10000");
         properties.put("mail.imaps.writetimeout", "10000");
 
-        // По умолчанию тело письма читается кусками по 16 КБ, по запросу на каждый кусок.
-        // Письмо с вложением на несколько МБ превращалось в сотни запросов. Читаем кусками по 1 МБ.
         properties.put("mail.imaps.fetchsize", "1048576");
 
         Session session = Session.getInstance(properties);

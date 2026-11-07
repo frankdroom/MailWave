@@ -23,7 +23,6 @@ public class MailService {
         this.searchService = searchService;
     }
 
-    /** Проверяет логин и пароль, не скачивая письма. Используется при входе. */
     public void testConnection() throws Exception {
         receiver.testConnection();
     }

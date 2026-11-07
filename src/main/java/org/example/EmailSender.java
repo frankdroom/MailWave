@@ -35,8 +35,7 @@ public class EmailSender {
             throws MessagingException, IOException {
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
-        // Порт 465 — это SSL с первого байта, порт 587 — STARTTLS. Если на 465 включить STARTTLS,
-        // клиент ждёт приветствие сервера, которое никогда не придёт, и отправка зависает до таймаута.
+
         boolean implicitSsl = "465".equals(port);
         properties.put("mail.smtp.ssl.enable", String.valueOf(implicitSsl));
         properties.put("mail.smtp.starttls.enable", String.valueOf(!implicitSsl));

@@ -46,14 +46,12 @@ public class MailClientFrame extends JFrame {
         setSize(1000, 600);
         setLocationRelativeTo(null);
 
-        // Панель управления (поиск и кнопки)
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         topPanel.add(new JLabel("Поиск:"));
         topPanel.add(searchField);
         topPanel.add(refreshButton);
         topPanel.add(composeButton);
 
-        // Разделительная панель (список писем | просмотр)
         JSplitPane splitPane = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT,
                 emailListPanel,
@@ -76,13 +74,10 @@ public class MailClientFrame extends JFrame {
             public void changedUpdate(DocumentEvent e) { performSearch(); }
         });
 
-        // Отображение выбранного письма
         emailListPanel.setOnEmailSelectedListener(emailDetailPanel::displayEmail);
 
-        // Загрузка писем
         refreshButton.addActionListener(e -> loadEmailsAsync());
 
-        // После входа письма загружаются сразу, без нажатия на «Обновить»
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
@@ -90,7 +85,6 @@ public class MailClientFrame extends JFrame {
             }
         });
 
-        // Открытие формы написания письма
         composeButton.addActionListener(e -> openComposeDialog());
     }
 
@@ -114,7 +108,6 @@ public class MailClientFrame extends JFrame {
             protected void done() {
                 try {
                     get();
-                    // учитываем текст, уже введённый в поиск
                     emailListPanel.updateList(mailService.filterEmails(searchField.getText()));
                 } catch (Exception ex) {
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;

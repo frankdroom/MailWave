@@ -6,10 +6,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * Настройки SMTP. Значения читаются через getProperty(), а он возвращает null для не-строк,
- * поэтому тесты заодно проверяют, что всё записано строками (иначе Jakarta Mail их не увидит).
- */
+
 class EmailSenderPropertiesTest {
 
     private static Properties propertiesFor(String port) {

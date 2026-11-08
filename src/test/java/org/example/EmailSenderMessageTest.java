@@ -16,7 +16,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Сборка исходящего письма проверяется без отправки: сеть не нужна. */
+
 class EmailSenderMessageTest {
 
     private static final Session SESSION = Session.getInstance(new Properties());

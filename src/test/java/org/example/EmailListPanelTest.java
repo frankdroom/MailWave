@@ -9,7 +9,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Вкладки All / Unread / Starred / Attachments. */
 class EmailListPanelTest {
 
     private final Email unread = email("unread", false, false, false);
@@ -70,7 +69,7 @@ class EmailListPanelTest {
 
         panel.setFilter(Filter.UNREAD);
         assertEquals(2, panel.getList().getModel().getSize());
-        // размер совпал бы и у инвертированного фильтра, поэтому проверяем сами письма
+
         assertEquals(unread, panel.getList().getModel().getElementAt(0));
         assertEquals(withFile, panel.getList().getModel().getElementAt(1));
 

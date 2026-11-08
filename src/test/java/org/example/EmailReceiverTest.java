@@ -6,7 +6,6 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Без сети: проверяется расчёт диапазона писем и настройки соединения. */
 class EmailReceiverTest {
 
     @Test

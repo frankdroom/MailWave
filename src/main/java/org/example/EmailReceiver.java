@@ -1,125 +1,154 @@
 package org.example;
 
-import org.example.service.MimeParserService;
-
-import jakarta.mail.FetchProfile;
-import jakarta.mail.Folder;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
-import jakarta.mail.Session;
-import jakarta.mail.Store;
-import jakarta.mail.internet.MimeMessage;
-
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import jakarta.mail.*;
+import jakarta.mail.internet.*;
+import jakarta.mail.search.*;
+import jakarta.mail.UIDFolder.FetchProfileItem;
+
 public class EmailReceiver {
 
-    public static final int DEFAULT_MAX_MESSAGES = 100;
+    private final String email;
+    private final String appPassword;
 
-    private final String host;
-    private final String port;
-    private final String username;
-    private final String password;
-
-    public EmailReceiver(String host, String port, String username, String password) {
-        this.host = host;
-        this.port = port;
-        this.username = username;
-        this.password = password;
+    public EmailReceiver(String email, String appPassword) {
+        this.email = email;
+        this.appPassword = appPassword;
     }
 
-    public void testConnection() throws MessagingException {
+    public List<Email> readEmails(Date from, Date to) {
         Store store = null;
-        Folder inbox = null;
+        Folder folder = null;
         try {
-            store = connect();
-            inbox = store.getFolder("INBOX");
-            inbox.open(Folder.READ_ONLY);
-        } finally {
-            closeQuietly(inbox);
-            closeQuietly(store);
-        }
-    }
+            store = getImapStore();
+            folder = getFolderFromStore(store, "INBOX");
 
-    public List<Email> receiveEmails(MimeParserService parserService) throws MessagingException {
-        return receiveEmails(parserService, DEFAULT_MAX_MESSAGES);
-    }
-
-    public List<Email> receiveEmails(MimeParserService parserService, int maxMessages) throws MessagingException {
-        Store store = null;
-        Folder inbox = null;
-        try {
-            store = connect();
-            inbox = store.getFolder("INBOX");
-            inbox.open(Folder.READ_ONLY);
-
-            int total = inbox.getMessageCount();
-            if (total == 0) {
-                return new ArrayList<>();
-            }
-
-            int start = Math.max(1, total - maxMessages + 1);
-            Message[] messages = inbox.getMessages(start, total);
-
-            FetchProfile profile = new FetchProfile();
-            profile.add(FetchProfile.Item.ENVELOPE);
-            profile.add(FetchProfile.Item.CONTENT_INFO);
-            inbox.fetch(messages, profile);
+            SearchTerm term = buildSearchTerm(from, to);
+            Message[] messages = folder.search(term);
+            folder.fetch(messages, getFetchProfile());
 
             List<Email> emails = new ArrayList<>(messages.length);
-            for (int i = messages.length - 1; i >= 0; i--) { // новые письма первыми
-                if (messages[i] instanceof MimeMessage mimeMessage) {
-                    try {
-                        emails.add(parserService.parseMessage(mimeMessage));
-                    } catch (MessagingException | IOException e) {
-                        System.err.println("Пропущено письмо, которое не удалось разобрать: " + e.getMessage());
-                    }
-                }
+            for (Message message : messages) {
+                emails.add(getEmailFromMessage(message));
             }
             return emails;
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
-            closeQuietly(inbox);
-            closeQuietly(store);
+            closeFolder(folder);
+            closeStore(store);
+        }
+        return Collections.emptyList();
+    }
+
+    private SearchTerm buildSearchTerm(Date from, Date to) {
+        if (from != null && to != null) {
+            return new AndTerm(
+                    new ReceivedDateTerm(ComparisonTerm.GE, from),
+                    new ReceivedDateTerm(ComparisonTerm.LE, to)
+            );
+        } else if (from != null) {
+            return new ReceivedDateTerm(ComparisonTerm.GE, from);
+        } else {
+            // default: last 24h
+            Date yesterday = new Date(new Date().getTime() - (1000L * 60 * 60 * 24));
+            return new ReceivedDateTerm(ComparisonTerm.GT, yesterday);
         }
     }
 
-    private Store connect() throws MessagingException {
-        Properties properties = new Properties();
-        properties.put("mail.store.protocol", "imaps");
-        properties.put("mail.imaps.host", host);
-        properties.put("mail.imaps.port", port);
-        properties.put("mail.imaps.ssl.enable", "true");
-
-        properties.put("mail.imaps.connectiontimeout", "10000");
-        properties.put("mail.imaps.timeout", "10000");
-        properties.put("mail.imaps.writetimeout", "10000");
-
-        properties.put("mail.imaps.fetchsize", "1048576");
-
-        Session session = Session.getInstance(properties);
+    private Store getImapStore() throws Exception {
+        Session session = Session.getInstance(getImapProperties());
         Store store = session.getStore("imaps");
-        store.connect(host, username, password);
+        store.connect("imap.gmail.com", email, appPassword);
         return store;
     }
 
-    private static void closeQuietly(Folder folder) {
-        if (folder != null && folder.isOpen()) {
-            try {
-                folder.close(false);
-            } catch (MessagingException ignored) {
+    private Properties getImapProperties() {
+        Properties props = new Properties();
+        props.put("mail.imaps.host", "imap.gmail.com");
+        props.put("mail.imaps.ssl.trust", "imap.gmail.com");
+        props.put("mail.imaps.port", "993");
+        props.put("mail.imaps.starttls.enable", "true");
+        props.put("mail.imaps.connectiontimeout", "15000");
+        props.put("mail.imaps.timeout", "15000");
+        return props;
+    }
+
+    private Folder getFolderFromStore(Store store, String folderName) throws MessagingException {
+        Folder folder = store.getFolder(folderName);
+        folder.open(Folder.READ_ONLY);
+        return folder;
+    }
+
+    private FetchProfile getFetchProfile() {
+        FetchProfile fetchProfile = new FetchProfile();
+        fetchProfile.add(FetchProfileItem.ENVELOPE);
+        fetchProfile.add(FetchProfileItem.CONTENT_INFO);
+        fetchProfile.add("X-mailer");
+        return fetchProfile;
+    }
+
+    private Email getEmailFromMessage(Message message) throws MessagingException, IOException {
+        Email email = new Email();
+        Address[] from = message.getFrom();
+        email.setFrom(from != null ? ((InternetAddress) from[0]).getAddress() : null);
+        email.setReceivedOn(message.getReceivedDate());
+        email.setSubject(message.getSubject());
+
+        Object content = message.getContent();
+        if (content instanceof String) {
+            email.getTextBuilder().append((String) content);
+        } else if (content instanceof Multipart) {
+            processMultipart((Multipart) content, email);
+        }
+        return email;
+    }
+
+    private void processMultipart(Multipart multipart, Email email) throws MessagingException, IOException {
+        for (int i = 0; i < multipart.getCount(); i++) {
+            BodyPart part = multipart.getBodyPart(i);
+
+            boolean isAttachment = Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())
+                    || (part.getFileName() != null && !part.getFileName().isEmpty());
+
+            if (isAttachment) {
+                readAttachment(part, email);
+            } else if (part.isMimeType("multipart/*")) {
+                processMultipart((Multipart) part.getContent(), email);
+            } else if (part.isMimeType("text/plain")) {
+                email.getTextBuilder().append(part.getContent().toString());
             }
         }
     }
 
-    private static void closeQuietly(Store store) {
+    private void readAttachment(BodyPart part, Email email) throws MessagingException, IOException {
+        String filename = part.getFileName();
+        try (InputStream is = part.getInputStream();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = is.read(buf)) != -1) baos.write(buf, 0, n);
+            email.getAttachments().add(new FileByteData(filename, baos.toByteArray()));
+        }
+    }
+
+    private void closeFolder(Folder folder) {
+        if (folder != null && folder.isOpen()) {
+            try { folder.close(true); } catch (MessagingException ignored) {}
+        }
+    }
+
+    private void closeStore(Store store) {
         if (store != null && store.isConnected()) {
-            try {
-                store.close();
-            } catch (MessagingException ignored) {
-            }
+            try { store.close(); } catch (MessagingException ignored) {}
         }
     }
 }

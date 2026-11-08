@@ -1,81 +1,67 @@
 package org.example;
 
-import jakarta.mail.Authenticator;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
-import jakarta.mail.Multipart;
-import jakarta.mail.PasswordAuthentication;
-import jakarta.mail.Session;
-import jakarta.mail.Transport;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeBodyPart;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.internet.MimeMultipart;
+import jakarta.activation.DataHandler;
+import jakarta.activation.DataSource;
+import jakarta.mail.*;
+import jakarta.mail.internet.*;
+import jakarta.activation.FileDataSource;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
 public class EmailSender {
 
-    private final String host;
-    private final String port;
-    private final String username;
-    private final String password;
+    private final String email;
+    private final String appPassword;
 
-    public EmailSender(String host, String port, String username, String password) {
-        this.host = host;
-        this.port = port;
-        this.username = username;
-        this.password = password;
+    public EmailSender(String email, String appPassword) {
+        this.email = email;
+        this.appPassword = appPassword;
     }
 
-    public void send(String to, String subject, String bodyText, List<String> attachmentPaths)
-            throws MessagingException, IOException {
-        Properties properties = new Properties();
-        properties.put("mail.smtp.auth", "true");
-
-        boolean implicitSsl = "465".equals(port);
-        properties.put("mail.smtp.ssl.enable", String.valueOf(implicitSsl));
-        properties.put("mail.smtp.starttls.enable", String.valueOf(!implicitSsl));
-        properties.put("mail.smtp.host", host);
-        properties.put("mail.smtp.port", port);
-
-        properties.put("mail.smtp.connectiontimeout", "10000");
-        properties.put("mail.smtp.timeout", "10000");
-        properties.put("mail.smtp.writetimeout", "10000");
-
-        Session session = Session.getInstance(properties, new Authenticator() {
-            @Override
+    public void sendEmail(String to, String subject, String text, List<File> attachments) throws MessagingException {
+        Session session = Session.getInstance(getSmtpProperties(), new Authenticator() {
             protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(username, password);
+                return new PasswordAuthentication(email, appPassword);
             }
         });
 
         Message message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(username));
-        message.setRecipient(Message.RecipientType.TO, new InternetAddress(to));
+        message.setFrom(new InternetAddress(email));
+        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
         message.setSubject(subject);
 
         Multipart multipart = new MimeMultipart();
 
-        MimeBodyPart textPart = new MimeBodyPart();
-        textPart.setText(bodyText != null ? bodyText : "", "UTF-8");
+        // Text body
+        BodyPart textPart = new MimeBodyPart();
+        textPart.setText(text);
         multipart.addBodyPart(textPart);
 
-        if (attachmentPaths != null) {
-            for (String path : attachmentPaths) {
-                File file = new File(path);
-                if (file.exists()) {
-                    MimeBodyPart attachPart = new MimeBodyPart();
-                    attachPart.attachFile(file);
-                    multipart.addBodyPart(attachPart);
-                }
+        // Attachments
+        if (attachments != null) {
+            for (File file : attachments) {
+                MimeBodyPart attachPart = new MimeBodyPart();
+                DataSource source = new FileDataSource(file);
+                attachPart.setDataHandler(new DataHandler(source));
+                attachPart.setFileName(file.getName());
+                multipart.addBodyPart(attachPart);
             }
         }
 
         message.setContent(multipart);
         Transport.send(message);
+    }
+
+    private Properties getSmtpProperties() {
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.port", "587");
+        props.put("mail.smtp.connectiontimeout", "15000");
+        props.put("mail.smtp.timeout", "15000");
+        return props;
     }
 }

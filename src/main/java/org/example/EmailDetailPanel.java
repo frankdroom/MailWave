@@ -36,11 +36,6 @@ public class EmailDetailPanel extends JPanel {
     public void setOnReply(Runnable r)             { this.onReply = r; }
     public void setOnStarToggled(Consumer<Email> c){ this.onStarToggled = c; }
 
-
-    public void displayEmail(Email email) {
-        showEmail(email);
-    }
-
     private void buildEmptyState() {
         JPanel emptyState = new JPanel(new GridBagLayout());
         emptyState.setBackground(Theme.BG_PANEL);
@@ -160,15 +155,15 @@ public class EmailDetailPanel extends JPanel {
 
         String subject = email.getSubject() != null ? email.getSubject() : "(No Subject)";
         subjectLabel.setText(subject);
-        fromLabel.setText("From:  " + (email.getSender() != null ? email.getSender() : "Unknown"));
-        dateLabel.setText(email.getSentDate() != null ? SDF.format(email.getSentDate()) : "");
-        bodyArea.setText(email.getBody() != null ? email.getBody().trim() : "");
+        fromLabel.setText("From:  " + (email.getFrom() != null ? email.getFrom() : "Unknown"));
+        dateLabel.setText(email.getReceivedOn() != null ? SDF.format(email.getReceivedOn()) : "");
+        bodyArea.setText(email.getText().trim());
         bodyArea.setCaretPosition(0);
 
         updateStarButton(email.isStarred());
 
         attachmentsPanel.removeAll();
-        if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
+        if (!email.getAttachments().isEmpty()) {
             JLabel attLabel = new JLabel("Attachments:");
             attLabel.setFont(Theme.FONT_SMALL);
             attLabel.setForeground(Theme.TEXT_MUTED);
@@ -213,14 +208,14 @@ public class EmailDetailPanel extends JPanel {
 
     private JButton buildAttachmentChip(FileByteData att) {
         long kb = Math.max(1, att.getData().length / 1024);
-        JButton btn = new JButton(att.getFileName() + "  (" + kb + " KB)");
+        JButton btn = new JButton(att.getFilename() + "  (" + kb + " KB)");
         btn.setFont(Theme.FONT_SMALL);
         btn.setBackground(Theme.BG_CARD);
         btn.setForeground(Theme.TEXT_ACCENT);
         btn.setFocusPainted(false);
         btn.setBorder(new CompoundBorder(new LineBorder(Theme.BORDER), new EmptyBorder(5, 10, 5, 10)));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setToolTipText("Save: " + att.getFileName());
+        btn.setToolTipText("Save: " + att.getFilename());
         btn.addMouseListener(hoverEffect(btn, Theme.BG_CARD, Theme.BG_HOVER));
         btn.addActionListener(e -> saveSingleAttachment(att));
         return btn;
@@ -228,7 +223,7 @@ public class EmailDetailPanel extends JPanel {
 
     private void saveSingleAttachment(FileByteData att) {
         JFileChooser chooser = new JFileChooser();
-        chooser.setSelectedFile(new File(att.getFileName()));
+        chooser.setSelectedFile(new File(att.getFilename()));
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 Files.write(chooser.getSelectedFile().toPath(), att.getData());
@@ -249,10 +244,10 @@ public class EmailDetailPanel extends JPanel {
             int saved = 0;
             for (FileByteData att : email.getAttachments()) {
                 try {
-                    Files.write(new File(dir, att.getFileName()).toPath(), att.getData());
+                    Files.write(new File(dir, att.getFilename()).toPath(), att.getData());
                     saved++;
                 } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(this, "Failed to save " + att.getFileName() + ":\n" + ex.getMessage(),
+                    JOptionPane.showMessageDialog(this, "Failed to save " + att.getFilename() + ":\n" + ex.getMessage(),
                             "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
@@ -296,23 +291,18 @@ public class EmailDetailPanel extends JPanel {
 
     private MouseAdapter hoverEffect(JButton btn, Color normal, Color hover) {
         return new MouseAdapter() {
-            @Override
             public void mouseEntered(MouseEvent e) { btn.setBackground(hover); }
-            @Override
             public void mouseExited(MouseEvent e)  { btn.setBackground(normal); }
         };
     }
 
     private void styleScrollBar(JScrollBar bar) {
         bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
-            @Override
             protected void configureScrollBarColors() {
                 thumbColor = Theme.BG_HOVER;
                 trackColor = Theme.BG_PANEL;
             }
-            @Override
             protected JButton createDecreaseButton(int o) { return tiny(); }
-            @Override
             protected JButton createIncreaseButton(int o) { return tiny(); }
             private JButton tiny() {
                 JButton b = new JButton();

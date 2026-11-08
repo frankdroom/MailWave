@@ -5,41 +5,89 @@ import java.util.Date;
 import java.util.List;
 
 public class Email {
-    private String from;
-    private String to;
     private String subject;
-    private Date receivedOn;
-    private StringBuilder textBuilder = new StringBuilder();
-    private List<FileByteData> attachments = new ArrayList<>();
-    private boolean read = false;
-    private boolean starred = false;
+    private String sender;
+    private Date sentDate;
+    private String body;
+    private List<FileByteData> attachments;
+    private boolean read;
+    private boolean starred;
 
-    public String getFrom() { return from; }
-    public void setFrom(String from) { this.from = from; }
 
-    public String getTo() { return to; }
-    public void setTo(String to) { this.to = to; }
+    public Email() {
+        this.attachments = new ArrayList<>();
+        this.read = false;
+        this.starred = false;
+    }
 
-    public String getSubject() { return subject; }
-    public void setSubject(String subject) { this.subject = subject; }
+    public Email(String subject, String sender, Date sentDate, String body, List<FileByteData> attachments) {
+        this(subject, sender, sentDate, body, attachments, false, false);
+    }
 
-    public Date getReceivedOn() { return receivedOn; }
-    public void setReceivedOn(Date receivedOn) { this.receivedOn = receivedOn; }
 
-    public StringBuilder getTextBuilder() { return textBuilder; }
-    public String getText() { return textBuilder.toString(); }
+    public Email(String subject, String sender, Date sentDate, String body, List<FileByteData> attachments, boolean read, boolean starred) {
+        this.subject = subject;
+        this.sender = sender;
+        this.sentDate = sentDate;
+        this.body = body;
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
+        this.read = read;
+        this.starred = starred;
+    }
 
-    public List<FileByteData> getAttachments() { return attachments; }
+    public String getSubject() {
+        return subject;
+    }
 
-    public boolean isRead() { return read; }
-    public void setRead(boolean read) { this.read = read; }
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
 
-    public boolean isStarred() { return starred; }
-    public void setStarred(boolean starred) { this.starred = starred; }
+    public String getSender() {
+        return sender;
+    }
 
-    @Override
-    public String toString() {
-        return String.format("RECEIVED ON: %s%nFROM: %s%nSUBJECT: %s%nNUMBER OF ATTACHMENTS: %d%nTEXT: %s",
-                receivedOn, from, subject, attachments.size(), textBuilder);
+    public void setSender(String sender) {
+        this.sender = sender;
+    }
+
+    public Date getSentDate() {
+        return sentDate;
+    }
+
+    public void setSentDate(Date sentDate) {
+        this.sentDate = sentDate;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    public List<FileByteData> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<FileByteData> attachments) {
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
+    }
+
+    public boolean isRead() {
+        return read;
+    }
+
+    public void setRead(boolean read) {
+        this.read = read;
+    }
+
+    public boolean isStarred() {
+        return starred;
+    }
+
+    public void setStarred(boolean starred) {
+        this.starred = starred;
     }
 }
